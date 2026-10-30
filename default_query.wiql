@@ -1,0 +1,37 @@
+SELECT
+	[System.Id],
+	[System.Title],
+	[System.AssignedTo],
+	[Custom.MeetsDoR],
+	[Custom.TestingScope],
+	[Custom.Region],
+	[Custom.SMEName],
+	[Custom.ProductOwner],
+	[Custom.ProductManager],
+	[System.Description]
+FROM workitems
+WHERE
+[System.TeamProject] = 'Otis ONE Platform'
+AND [System.WorkItemType] = 'Feature'
+AND [System.IterationPath] UNDER 'Otis ONE Platform\PI26C'
+	AND NOT [System.State] CONTAINS 'Removed'
+	AND (
+			[System.AssignedTo] = 'Krishna Grandhi, Vamsi <VamsiKrishna.Grandhi@otis.com>'
+			OR [System.AssignedTo] = 'Rao Yerramsetty, Veera Raghavendra <RaghavendraRao.YV@otis.com>'
+			OR [System.AssignedTo] = 'Reddy Gireddy, Jayapal <JayapalReddy.Gireddy@otis.com>'
+			OR [System.AssignedTo] = 'Satyawali, Manoj <Manoj.Satyawali@otis.com>'
+			OR [System.AssignedTo] = 'Hussain, Mohammed Aftab <MohammedAftab.Hussain@otis.com>'
+	)
+	AND (
+			[System.AreaPath] = 'Otis ONE Platform\Otis ONE\CC-ART\CIMS_OTA'
+			OR [System.AreaPath] = 'Otis ONE Platform\Otis ONE\CC-ART\G3MS'
+			OR [System.AreaPath] = 'Otis ONE Platform\Otis ONE\UX-ART\CCMS'
+			OR [System.AreaPath] = 'Otis ONE Platform\Otis ONE\UX-ART\GlobalSS'
+			OR [System.AreaPath] = 'Otis ONE Platform\Otis ONE\UX-ART\CCC'
+			OR [System.AreaPath] = 'Otis ONE Platform\Otis ONE\CC-ART\IOTS'
+			OR [System.AreaPath] = 'Otis ONE Platform\Otis ONE\CC-ART\CSVT'
+			OR [System.AreaPath] = 'Otis ONE Platform\Otis ONE\CC-ART\MWCloud'
+			OR [System.AreaPath] = 'Otis ONE Platform\Otis ONE\CC-ART\MMS'
+	)
+	AND NOT [System.Title] CONTAINS 'R2C'
+	AND [Custom.TestingScope] = 'Yes'
