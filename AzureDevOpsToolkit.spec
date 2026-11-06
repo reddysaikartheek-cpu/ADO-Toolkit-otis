@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('app.py', '.'), ('link_tests_to_epic.py', '.'), ('AzureDevOpsHeatmap_improved_fixed.py', '.'), ('README.md', '.')]
+datas = [('app.py', '.'), ('link_tests_to_epic.py', '.'), ('AzureDevOpsHeatmap_improved_fixed.py', '.'), ('pipelines_ado.py', '.'), ('README.md', '.')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('streamlit')

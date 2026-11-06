@@ -59,7 +59,8 @@ def get_test_case_ids_by_area_path(area_path: str) -> List[int]:
         headers={"Content-Type": "application/json"},
         timeout=60,
     )
-    response.raise_for_status()
+    if not response.ok:
+        raise RuntimeError(f"{response.status_code} {response.reason}: {response.text}")
     return [item["id"] for item in response.json().get("workItems", [])]
 
 
@@ -196,6 +197,90 @@ def find_coverage_gaps(ids: List[int]) -> Dict[str, object]:
                 }
             )
     return {"checked": checked, "ignored": ignored, "unlinked": unlinked}
+
+
+def get_coverage_summary(ids: List[int]) -> Dict[str, List[Dict[str, object]]]:
+    """Read-only: split Epics and Features in ids into those with and without linked test cases."""
+    linked: List[Dict[str, object]] = []
+    unlinked: List[Dict[str, object]] = []
+    for item in get_work_items_expanded(ids):
+        fields = item.get("fields", {})
+        item_type = fields.get("System.WorkItemType")
+        if item_type not in COVERAGE_TYPES:
+            continue
+        test_count = sum(1 for rel in item.get("relations") or [] if rel.get("rel") in TESTED_BY_RELS)
+        entry = {
+            "id": item["id"],
+            "type": item_type,
+            "title": fields.get("System.Title", ""),
+            "state": fields.get("System.State", ""),
+            "tests": test_count,
+            "url": f"https://dev.azure.com/{ORG}/{PROJECT_NAME}/_workitems/edit/{item['id']}",
+        }
+        (linked if test_count else unlinked).append(entry)
+    return {"linked": linked, "unlinked": unlinked}
+
+
+def get_epic_sprints(query_ids: List[int]) -> List[Dict[str, object]]:
+    """Read-only: for Epics in the saved query, return their child Features' iteration paths. Expected sprint is the last one."""
+    epic_items = [item for item in get_work_items_expanded(query_ids) if item.get("fields", {}).get("System.WorkItemType") == "Epic"]
+    children: Dict[int, List[int]] = {}
+    for item in epic_items:
+        child_ids = [
+            int(relation["url"].rsplit("/", 1)[-1])
+            for relation in item.get("relations") or []
+            if relation.get("rel") == "System.LinkTypes.Hierarchy-Forward"
+        ]
+        if child_ids:
+            children[item["id"]] = child_ids
+    if not children:
+        return []
+    feature_ids = sorted({fid for ids in children.values() for fid in ids})
+    fetched = get_work_items_expanded(feature_ids)
+    by_id = {item["id"]: item.get("fields", {}) for item in fetched}
+    for epic_id in list(children):
+        children[epic_id] = [fid for fid in children[epic_id] if "SST" not in by_id.get(fid, {}).get("System.Title", "").upper()]
+        if not children[epic_id]:
+            del children[epic_id]
+    if not children:
+        return []
+    epic_fields = {item["id"]: item.get("fields", {}) for item in epic_items}
+    epics: List[Dict[str, object]] = []
+    for epic_id, child_ids in children.items():
+        fields = epic_fields.get(epic_id, {})
+        features = [
+            {
+                "id": fid,
+                "title": by_id.get(fid, {}).get("System.Title", ""),
+                "iteration": by_id.get(fid, {}).get("System.IterationPath", ""),
+            }
+            for fid in child_ids
+        ]
+        epics.append(
+            {
+                "id": epic_id,
+                "title": fields.get("System.Title", ""),
+                "state": fields.get("System.State", ""),
+                "area": fields.get("System.AreaPath", ""),
+                "features": features,
+            }
+        )
+    return epics
+
+
+def get_feature_sprints(query_ids: List[int]) -> List[Dict[str, object]]:
+    """Read-only: return Features from the saved query with their iteration paths, excluding titles containing SST."""
+    features = [
+        {
+            "id": item["id"],
+            "title": item.get("fields", {}).get("System.Title", ""),
+            "state": item.get("fields", {}).get("System.State", ""),
+            "iteration": item.get("fields", {}).get("System.IterationPath", ""),
+        }
+        for item in get_work_items_expanded(query_ids)
+        if item.get("fields", {}).get("System.WorkItemType") == "Feature"
+    ]
+    return [feature for feature in features if "SST" not in feature["title"].upper()]
 
 
 def get_epics_and_features(ids: List[int]) -> List[Dict[str, object]]:
