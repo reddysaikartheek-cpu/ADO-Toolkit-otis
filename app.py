@@ -29,7 +29,7 @@ if not os.getenv("AZDO_PAT") and CONFIG_PATH.exists():
 
 st.set_page_config(page_title="ADO Tool Kit", layout="wide")
 st.markdown(
-    "<style>div[data-testid='InputInstructions'], [data-testid='stAppDeployButton'] {display: none;} div[data-testid='stMainBlockContainer'] {padding-top: 2rem; padding-left: 3rem; padding-right: 3rem;}</style>",
+    "<style>div[data-testid='InputInstructions'], [data-testid='stAppDeployButton'] {display: none;} div[data-testid='stMainBlockContainer'] {padding-top: 2rem; padding-left: 3rem; padding-right: 3rem;} input::placeholder, textarea::placeholder {color: #8b8b95 !important; opacity: 1;}</style>",
     unsafe_allow_html=True,
 )
 st.title("ADO Tool Kit")
