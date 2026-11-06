@@ -78,13 +78,13 @@ def sprint_order(iteration_path: str) -> tuple:
     return (*pi_key, int(sprint_match.group(1)) if sprint_match else 0)
 
 def sync_query_url(widget_key: str) -> None:
-    st.session_state["saved_query_url"] = st.session_state[widget_key]
+    st.session_state["saved_query_url"] = st.session_state.get(widget_key, "")
 
 
 def saved_query_url_input(widget_key: str) -> str:
+    st.session_state.setdefault(widget_key, st.session_state.get("saved_query_url", ""))
     return st.text_input(
         "Saved query URL (Epics/Features)",
-        value=st.session_state.get("saved_query_url", ""),
         placeholder="https://dev.azure.com/<org>/<project>/_queries/query/<query-id>/",
         key=widget_key,
         on_change=sync_query_url,
