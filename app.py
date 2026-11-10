@@ -150,13 +150,15 @@ with export_tab:
 
 with link_tab:
     epic_id_text = st.text_input("Epic/Feature ID", placeholder="e.g. 1496542")
-    link_source = st.radio("Test cases from", ["Area Path", "Test Plan suite"], horizontal=True)
+    link_source = st.radio("Test cases from", ["Area Path", "Test Plan suite", "Tested by another Epic/Feature"], horizontal=True)
     if link_source == "Area Path":
         area_path = st.text_input("Area Path", placeholder="Otis ONE Platform\\Otis ONE\\SST Systems Team")
-    else:
+    elif link_source == "Test Plan suite":
         plan_col, suite_col = st.columns(2)
         plan_id_text = plan_col.text_input("Test Plan ID", placeholder="e.g. 1234567")
         suite_id_text = suite_col.text_input("Suite (feature folder) ID", placeholder="e.g. 1234568")
+    else:
+        source_id_text = st.text_input("Source Epic/Feature ID", placeholder="e.g. 1234569")
 
     if st.button("Find Test Cases", type="primary"):
         st.session_state.pop("link_preview", None)
@@ -164,18 +166,24 @@ with link_tab:
             st.error("Enter a numeric Epic/Feature ID.")
         elif link_source == "Area Path" and not area_path.strip():
             st.error("Enter an Area Path.")
-        elif link_source != "Area Path" and not (plan_id_text.strip().isdigit() and suite_id_text.strip().isdigit()):
+        elif link_source == "Test Plan suite" and not (plan_id_text.strip().isdigit() and suite_id_text.strip().isdigit()):
             st.error("Enter a numeric Test Plan ID and Suite ID.")
+        elif link_source == "Tested by another Epic/Feature" and not source_id_text.strip().isdigit():
+            st.error("Enter a numeric source Epic/Feature ID.")
         else:
             with st.spinner("Reading the Epic/Feature and test cases from Azure DevOps..."):
                 try:
                     if link_source == "Area Path":
                         data = link.preview_link(int(epic_id_text), area_path.strip())
                         source_label = f"Test cases under the Area Path: {len(data['test_cases'])}"
-                    else:
+                    elif link_source == "Test Plan suite":
                         test_case_ids = link.get_test_case_ids_by_suite(int(plan_id_text), int(suite_id_text))
                         data = link.preview_test_cases(int(epic_id_text), test_case_ids)
                         source_label = f"Test cases in suite {suite_id_text} of plan {plan_id_text}: {len(data['test_cases'])}"
+                    else:
+                        source_tests = link.get_linked_test_cases(int(source_id_text))
+                        data = link.preview_test_cases(int(epic_id_text), [tc["id"] for tc in source_tests])
+                        source_label = f"Test cases tested by Epic/Feature {source_id_text}: {len(data['test_cases'])}"
                     st.session_state["link_preview"] = {"data": data, "source_label": source_label}
                 except Exception as exc:
                     st.error(f"Could not read the Epic/Feature or test cases: {exc}")
@@ -229,21 +237,42 @@ with link_tab:
 
 with suite_tab:
     st.write("Creates a static suite that contains the test cases linked to an Epic or Feature.")
-    suite_query_url = saved_query_url_input("suite_query_url")
-    if st.button("Find Epics/Features", type="primary", key="find_suite_items"):
-        st.session_state.pop("suite_items", None)
-        match = re.search(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}", suite_query_url or "")
-        if not match:
-            st.error("Enter a saved query URL that contains a query ID.")
-        else:
-            with st.spinner("Reading Epics and Features from the query..."):
-                try:
-                    items = link.get_epics_and_features(cached_saved_query_ids(match.group(0)))
-                    st.session_state["suite_items"] = items
-                    if items:
-                        st.session_state["suite_name"] = items[0]["title"]
-                except Exception as exc:
-                    st.error(f"Could not read the query: {exc}")
+    saved_suite_tab, id_suite_tab = st.tabs(["Saved Query URL", "Epic/Feature ID"])
+
+    with saved_suite_tab:
+        suite_query_url = saved_query_url_input("suite_query_url")
+        if st.button("Find Epics/Features", type="primary", key="find_suite_items"):
+            st.session_state.pop("suite_items", None)
+            match = re.search(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}", suite_query_url or "")
+            if not match:
+                st.error("Enter a saved query URL that contains a query ID.")
+            else:
+                with st.spinner("Reading Epics and Features from the query..."):
+                    try:
+                        items = link.get_epics_and_features(cached_saved_query_ids(match.group(0)))
+                        st.session_state["suite_items"] = items
+                        if items:
+                            st.session_state["suite_name"] = items[0]["title"]
+                    except Exception as exc:
+                        st.error(f"Could not read the query: {exc}")
+
+    with id_suite_tab:
+        suite_item_id = st.text_input("Epic/Feature ID", placeholder="e.g. 1496542", key="suite_item_id")
+        if st.button("Find Epic/Feature", type="primary", key="find_suite_item"):
+            st.session_state.pop("suite_items", None)
+            if not suite_item_id.strip().isdigit():
+                st.error("Enter a numeric Epic/Feature ID.")
+            else:
+                with st.spinner("Reading the Epic/Feature..."):
+                    try:
+                        items = link.get_epics_and_features([int(suite_item_id)])
+                        st.session_state["suite_items"] = items
+                        if items:
+                            st.session_state["suite_name"] = items[0]["title"]
+                        else:
+                            st.warning("That ID is not an Epic or Feature.")
+                    except Exception as exc:
+                        st.error(f"Could not read the Epic/Feature: {exc}")
 
     if "suite_items" in st.session_state:
         items = st.session_state["suite_items"]
